@@ -1,0 +1,16 @@
+html body#root-body {
+  .g-el-popper01.el-popper.el-dropdown__popper {
+    background-color: #011f53;
+    border-color: #154ba8;
+    &.is-light > .el-popper__arrow:before {
+      background-color: #011f53;
+      border-color: #154ba8;
+    }
+  }
+}
+
+.g-keep-all {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

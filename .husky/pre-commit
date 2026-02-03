@@ -1,0 +1,22 @@
+#!/bin/bash
+ALLOWED_EMAIL="1174295440@qq.com"
+
+# 获取提交者邮箱
+email=$(git config user.email)
+
+# 获取本次提交暂存区修改的文件列表
+files=$(git diff --cached --name-only)
+
+echo "开始检查修改权限"
+
+for file in $files; do
+  # 判断是否属于 plugins/jcy 目录
+  if [[ "$file" == **/plugins/jcy/* ]]; then
+    if [[ "$email" != "$ALLOWED_EMAIL" ]]; then
+      echo "❌ 错误：目录 [plugins/jcy] 只能由作者 $ALLOWED_EMAIL 提交，当前邮箱：$email"
+      exit 1
+    fi
+  fi
+done
+
+exit 0
