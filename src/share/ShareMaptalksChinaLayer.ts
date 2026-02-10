@@ -29,8 +29,8 @@ interface IShareMaptalksChinaBackgroundConfig {
     borderWidth: number
     hoverBackgroundColor: string
     activeBackgroundColor: string
-    onMounseMove: (ev:any) => void
-    onMounseOut: (ev:any) => void
+    onMouseMove: (ev:any) => void
+    onMouseOut: (ev:any) => void
     onSelect: (adcode?: number) => void    
   }
   activeStyle: {
@@ -245,6 +245,7 @@ export default class ShareMaptalksChinaBackground extends ShareMaptalksZoomLayer
         draggable: false,
         dragShadow: false,
         properties: {
+          areaName: item.properties.name,
           adcode: item.properties.adcode,
           ZOOM_PARENT_CODE: item.properties.parent?.adcode,
           ZOOM_SELECTED: false,
@@ -286,7 +287,7 @@ export default class ShareMaptalksChinaBackground extends ShareMaptalksZoomLayer
           }        
         })
         iMultiPoy.on('mousemove', (ev) =>{
-          this._cfg.provinceConfig.onMounseMove(ev)
+          this._cfg.provinceConfig.onMouseMove(ev)
         })
         iMultiPoy.on('mouseout', (ev) => {
           if(!iMultiPoy.properties.ZOOM_SELECTED) {
@@ -294,7 +295,7 @@ export default class ShareMaptalksChinaBackground extends ShareMaptalksZoomLayer
               polygonFill: this._cfg.provinceConfig.backgroundColor
             })
           }
-          this._cfg.provinceConfig.onMounseOut(ev)
+          this._cfg.provinceConfig.onMouseOut(ev)
           
         })
       }

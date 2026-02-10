@@ -44,7 +44,7 @@
 <template>
   <div class="Ready">
     <ul>
-      <li v-for="item in navList" :key="item.routeName" :class="{'is-active': isActive(item.routeName)}">{{ item.label }}</li>
+      <li v-for="item in navList" :key="item.routeName" :class="{'is-active': isActive(item.routeName)}" @click="jump(item.routeName)">{{ item.label }}</li>
     </ul>
     <RouterView class="ReadyRoute"></RouterView>
   </div>  
@@ -59,11 +59,17 @@ const route = useRoute()
 
 const navList = [
   { routeName: 'ROUTE_HOME_MAPSCALEPOINTLINECONFIG', label: '地图缩放-点线配置' },
-  { routeName: '222222', label: '测试002' },
+  { routeName: 'ROUTE_HOME_HODOMETER', label: '行程单' },
 ]
 
 function isActive (name: string) {
   return route.matched.some(c=>c.name === name)
+}
+
+function jump (name: string) {
+  router.push({
+    name
+  })
 }
 
 onMounted(function () {

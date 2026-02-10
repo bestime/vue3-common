@@ -33,6 +33,14 @@ export const routeList: Array<RouteRecordRaw> = [
           permissionId: PERMISSIONID_SHARE
         },
       },
+      {
+        path: '/HodoMeter',
+        name: 'ROUTE_HOME_HODOMETER',
+        component: () => import("@/pages/HodoMeter/index.vue"),
+        meta: {
+          permissionId: PERMISSIONID_SHARE
+        },
+      },
       
     ]
   },

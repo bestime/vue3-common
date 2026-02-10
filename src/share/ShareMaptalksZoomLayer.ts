@@ -14,7 +14,7 @@ import type { DebouncedFuncLeading } from "lodash";
  */
 
 
-interface IShareCfg {
+export interface IShareCfg {
   enableScale?: boolean
   iconSize?: number
   iconHorizontalOffset?: number

@@ -8,10 +8,9 @@
 ul {
   box-sizing: border-box;
   padding: 0;
-  margin: 0;
+  margin: 5px 0;
   list-style: none;
   background-color: #f5f5f5;
-  
   li {
     
     padding: 5px;

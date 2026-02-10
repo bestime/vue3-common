@@ -58,10 +58,25 @@
             <el-option v-for="item in state.mapList" :key="item.id" :label="item.label" :value="item.id"></el-option>
           </el-select>
         </li>
+        <!-- <h4>{{state.preveCfg}}</h4> -->
+        <li style="color:#d49419;">
+          <b>推荐：</b>
+          <span><br/>图标大小：{{ suggest.iconSize }}  <br/>文字大小：{{suggest.fontSize}}</span>
+          <br/><br/>根据上一个：
+          <br/>图标大小：{{ suggest.fromPrev.iconSize }} 
+          <br/>图标水平偏移：{{ suggest.fromPrev.iconHorizontalOffset }} 
+          <br/>图标垂直偏移：{{ suggest.fromPrev.iconVerticalOffset }} 
+          <br/>文字大小：{{suggest.fromPrev.fontSize}}
+          <br/>文字水平偏移：{{ suggest.fromPrev.fontHorizontalOffset }} 
+          <br/>文字垂直偏移：{{ suggest.fromPrev.fontVerticalOffset }} 
+
+        </li>
         <li>
           <b>缩放（{{ state.mapCurrentZoom }}）：</b>
           <input v-model="state.formData.zoom"/>
         </li>
+        
+
         <li>
           <b>id：</b>
           <span>{{ state.formData.id }}</span>
@@ -105,15 +120,16 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, onBeforeUnmount, useTemplateRef, onMounted } from 'vue'
+import { reactive, onBeforeUnmount, useTemplateRef, onMounted, computed } from 'vue'
 import ShareMaptalksChinaLayer from '@/share/ShareMaptalksChinaLayer'
 import { Map, Marker, MultiPolygon, TileLayer, VectorLayer } from 'maptalks'
 import { requestLocalFile, serverURL } from '@/request'
 import ShareMaptalksLegend,  {type ILegendItem } from '@/share/ShareMaptalksLegend.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ConfigList from './ConfigList.vue'
-import type { ShareMaptalksZoomLayerConfig } from '@/share/ShareMaptalksZoomLayer'
+import type { ShareMaptalksZoomLayerConfig, IShareCfg } from '@/share/ShareMaptalksZoomLayer'
 import { assign, cloneDeep, uniq } from 'lodash-es'
+import { getPrevCfg } from './lib'
 
 let iMap: Map | undefined
 const oMap = useTemplateRef('ref-map')
@@ -144,18 +160,32 @@ const legendListNmgGuanWang:ILegendItem[] = [
   { id: '分输清管站', label: '分输清管站', icon: serverURL('@local', '/static/images/gdq-5.png') },
 ]
 
+
+const baseCfg = reactive({
+  iconSize: 18,
+  fontSize: 10,
+  zoom: 5.9
+})
+
 const state = reactive({
   legendList: [] as ILegendItem[],
   mapId: '',
   selectedLegendIds: legendListNmgLng.map(c=>c.id),
-  mapCurrentZoom: '5',
+  mapCurrentZoom: baseCfg.zoom.toString(),
   historyConfig: [] as any[],
+  preveCfg: {
+    zoom: 0,
+    iconSize: 0,
+    fontSize: 0,
+  } as IShareCfg & {
+    zoom: number
+  },
   mapList: [
     { id: '1', label: '内蒙古LNG', legend: legendListNmgLng, fileName: '01.json' },
     { id: '2', label: '内蒙古管网', legend: legendListNmgGuanWang, fileName: '02.json' },
   ],
   formData: {
-    zoom: '5',
+    zoom: baseCfg.zoom.toString(),
     id: '',
     title: '',
     enableScale: false,    
@@ -186,12 +216,12 @@ const chinaLayerBackground = new ShareMaptalksChinaLayer('地带点', {
     canSelect: false,
     backgroundColor: '#06419b',
     borderColor: '#061940',
-    fontColor: '#eee',
+    fontColor: '#3c75cb',
     borderWidth: 1,
     hoverBackgroundColor: '#0e4daa',
     activeBackgroundColor: '#0956d6',
-    onMounseMove: function (ev) {},
-    onMounseOut: function (ev) {},
+    onMouseMove: function (ev) {},
+    onMouseOut: function (ev) {},
     onSelect: function (adcode?: number) {
       console.log("省份城市选中", adcode)
     }
@@ -205,6 +235,26 @@ const chinaLayerBackground = new ShareMaptalksChinaLayer('地带点', {
   fitViews: [
     // { adcode: 150700, zoom: 6, center: [109.715607671875, 35.7564384926223] }
   ]
+})
+
+const suggest = computed(function () {
+  state.preveCfg = getPrevCfg(state.historyConfig, jUtilsBase._Number(state.formData.zoom))
+  const toZ = jUtilsBase._Number(state.formData.zoom)
+  const rate =  (toZ - baseCfg.zoom) / baseCfg.zoom + 1
+
+  const diffRate = jUtilsBase.getRatio(toZ, state.preveCfg.zoom)
+  return {
+    iconSize: jUtilsBase.roundFixed(baseCfg.iconSize * rate, 2),    
+    fontSize:jUtilsBase.roundFixed(baseCfg.fontSize * rate, 2),    
+    fromPrev: {
+      iconSize:jUtilsBase.roundFixed(jUtilsBase._Number(state.preveCfg.iconSize) * diffRate, 2),
+      iconHorizontalOffset:jUtilsBase.roundFixed(jUtilsBase._Number(state.preveCfg.iconHorizontalOffset) * diffRate, 2),
+      iconVerticalOffset:jUtilsBase.roundFixed(jUtilsBase._Number(state.preveCfg.iconVerticalOffset) * diffRate, 2),  
+      fontSize:jUtilsBase.roundFixed(jUtilsBase._Number(state.preveCfg.fontSize) * diffRate, 2),
+      fontHorizontalOffset:jUtilsBase.roundFixed(jUtilsBase._Number(state.preveCfg.fontHorizontalOffset) * diffRate, 2),
+      fontVerticalOffset:jUtilsBase.roundFixed(jUtilsBase._Number(state.preveCfg.fontVerticalOffset) * diffRate, 2),
+    }
+  }
 })
 
 function onMapSelected () {
@@ -334,6 +384,7 @@ function backFillEdit (id: string, scale?: string) {
     }
   })
   state.historyConfig = itemZooms
+  
 }
 
 function enabledEdit () {
@@ -441,7 +492,7 @@ onMounted(function () {
   iMap = new Map(oMap.value!, {
     center:[111.956818609375, 45.94437622504634],
     zoom: +state.formData.zoom,
-    minZoom: 5.9,
+    minZoom: baseCfg.zoom,
     maxZoom: 12,
     draggable:true,
     control: false,
