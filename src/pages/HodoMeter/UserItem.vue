@@ -6,17 +6,21 @@
   gap: 10px;
   justify-content: center;
   margin: 5px;
-  &[status="1"] {
+  &[status="0"] {
     color: #666;
     background-color: #eeeeef;
   }
-  &[status="2"] {
+  &[status="1"] {
     color: blue;
     background-color: #dfdffb;
   }
-  &[status="3"] {
+  &[status="2"] {
     color: red;
     background-color: #f9e9e9;
+  }
+  &[status="3"] {
+    color: white;
+    background-color: black;
   }
 }
 </style>

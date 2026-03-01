@@ -21,6 +21,18 @@
   border-top: none;
   display: flex;
   flex-direction: column;
+  position:relative;
+  &.is-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    border: black solid 4px;
+    z-index: 2;
+    pointer-events: none;
+  }
 }
 </style>
 
@@ -35,9 +47,9 @@
       <div class="ShareHodoMeter-date">周六</div>
       <div class="ShareHodoMeter-date">周日</div>
     </div> -->
-    <div class="ShareHodoMeter-row" v-for="group in state.tableList" :key="group.id">
-      <div class="ShareHodoMeter-date" v-for="item in group.data" :key="item.dateTime">
-        <slot name="date" v-bind="item"/>
+    <div class="ShareHodoMeter-row" v-for="group in state.tableList" :key="group.key">
+      <div class="ShareHodoMeter-date" v-for="item in group.data" :key="item.dateTime" :class="{'is-active': item.isActive}" :status="item.status">
+        <slot name="date" v-bind="item" :key="item.key"/>
         
         
       </div>
@@ -47,7 +59,7 @@
 
 <script lang="ts" setup>
 import { reactive, onBeforeUnmount, watch } from 'vue'
-import { getCalendarList, type ICalendarItem, type IData } from './lib';
+import { getCalendarList, type ICalendarItem, type IData, type IPersonDataOutput } from './lib';
 
 import dayjs from 'dayjs';
 import { cloneDeep } from 'lodash-es';
@@ -65,13 +77,19 @@ const props = defineProps<{
   data: IData
 }>();
 
+const emits = defineEmits<{
+  (name: 'on-active-change', data: IPersonDataOutput[]): void
+}>()
+
 const state = reactive({
-  tableList: [] as ReturnType<typeof getCalendarList>
+  tableList: [] as ReturnType<typeof getCalendarList>['data']
 })
 
 
 function renderCalendar () {
-  state.tableList = getCalendarList(cloneDeep(props.data))
+  const cvt = getCalendarList(cloneDeep(props.data))
+  state.tableList = cvt.data
+  emits('on-active-change', cvt.activeUserList)
 }
 
 watch(() => [props.data.startTime, props.data.endTime, props.data.data.length], function () {

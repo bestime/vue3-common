@@ -1,8 +1,11 @@
-import { arrayGroupColumn, defualtFormatter, uuid } from "@bestime/utils_base"
+import { _Number, arrayGroupColumn, defualtFormatter, trim, uuid } from "@bestime/utils_base"
 import dayjs, { Dayjs } from "dayjs"
 import { assign, cloneDeep, groupBy, last, uniq } from "lodash-es"
 
 export interface ICalendarItem {
+  key: string
+  isActive: boolean
+  status: IPersonData['status'],
   dateTime: string  
   week: string,
   label: string
@@ -11,22 +14,26 @@ export interface ICalendarItem {
 }
 
 const STATUS_MAP = {
-  '1': '办公',
-  '2': '出差',
-  '3': '休假',
+  '0': '办公',
+  '1': '出差',
+  '2': '休假',
+  '-1': '节假日',
 }
 
 export interface IPersonData {
-  id: string,
+  /** 数据ID，可为空 */
+  dataId: string,
   dateTime: string,
   userId: string,
   status: keyof typeof STATUS_MAP,
   city: string,
   startTime?: string | undefined,
   endTime?: string | undefined
+  
 }
 
 export interface IData {
+  activeTime?: string
   startTime: string,
   endTime: string,
   holidays: string[],
@@ -35,11 +42,25 @@ export interface IData {
 
 
 export interface IPersonDataOutput extends IPersonData {
+  /** 用于渲染时的唯一值 */
+  key: string
   dateTimeStamp: number
   fmtStatus: string
   startTimeStamp: number
   endTimeStamp: number
   rangeTag?: 'doing' | 'end'
+}
+
+
+export function dateToWeekOffset (value: string) {
+  const w = new Date(value).getDay()
+  const diff = w === 0 ? 6 : w-1
+  return dayjs(value).subtract(diff, 'day').format('YYYY-MM-DD')
+}
+export function dateToWeekEnd (value: string) {
+  const w = new Date(value).getDay()  
+  const diff = w === 0 ? 0 : 7-w
+  return dayjs(value).add(diff, 'day').format('YYYY-MM-DD')
 }
 
 
@@ -61,57 +82,55 @@ const weekList = [
  * @param data 
  */
 function replenishOnePersonData02 (userId: string, data: IPersonDataOutput[], filterStartTimeStamp: number, filterEndTimeStamp: number) {
-  if(data.length === 0) return [];
   
+  if(data.length === 0) return [];
   filterStartTimeStamp = Math.min(filterStartTimeStamp, data[0]!.dateTimeStamp)
   filterEndTimeStamp = Math.max(filterEndTimeStamp, last(data)!.endTimeStamp)
   const result:IPersonDataOutput[] = []
   let deepCity = '重庆'
-  let deepStatus: IPersonDataOutput['status'] = '1'
+  let deepStatus: IPersonDataOutput['status'] = '0'
   let deepEndTimeStamp = data[0]!.endTimeStamp
+  
   for(let deepTimeStamp = filterStartTimeStamp; deepTimeStamp<=filterEndTimeStamp; deepTimeStamp+=oneDay) {
     const ext = data.find(c=>c.dateTimeStamp === deepTimeStamp)
     if(ext) {
       deepCity = ext.city
       deepStatus = ext.status
-      if(ext.endTimeStamp > 0) {
-        deepEndTimeStamp = ext.endTimeStamp
-      }          
+      deepEndTimeStamp = ext.endTimeStamp         
     }
     
-
     const t = dayjs(deepTimeStamp)
+    // console.log("处理之前", t.format('YYYY-MM-DD'), dayjs(deepEndTimeStamp).format('YYYY-MM-DD'), deepStatus, _Number(ext?.endTime))
     result.push({
-      id: `${userId}-${deepTimeStamp}`,
+      key: `user_${userId}_${deepTimeStamp}`,
+      dataId: trim(ext?.dataId),
       dateTime: t.format('YYYY-MM-DD'),
       dateTimeStamp: t.valueOf(),
       userId: userId,
       city: deepCity,
       status: deepStatus,
       fmtStatus: STATUS_MAP[deepStatus],
-      startTime: undefined,
-      startTimeStamp: 0,
-      endTime: undefined,
-      endTimeStamp: 0
+      startTime: trim(ext?.startTime),
+      startTimeStamp: _Number(ext?.startTimeStamp),
+      endTime: trim(ext?.endTime),
+      endTimeStamp: _Number(ext?.endTimeStamp)
     })
 
     // 如果到了结束时间，就重置为初始状态
     if(deepTimeStamp === deepEndTimeStamp) {
+      // console.log("重置", t.format('YYYY-MM-DD'))
       deepCity = '重庆'
-      deepStatus = '1'
-      deepEndTimeStamp = 0
-      
+      deepStatus = '0'
+      deepEndTimeStamp = 0      
     }  
   }
-
-  // console.log("处理一个人", data, result)
 
   return result;
 
 }
 
 
-function personDataParser (_: IData) {
+function personDataParser (_: IData) {  
   // 先把所有包含时间的处理为时间戳，方便后期比较大小
   const filterStartTimeStamp = dayjs(_.startTime).valueOf()
   const filterEndTimeStamp = dayjs(_.endTime).valueOf()
@@ -125,6 +144,7 @@ function personDataParser (_: IData) {
       c.startTime = c.dateTime
     }
     return assign({}, c, {
+      key:'',
       dateTimeStamp: dayjs(c.dateTime).valueOf(),
       startTimeStamp: defualtFormatter(0, c.startTime, function (_) {
         return dayjs(_).valueOf()
@@ -142,13 +162,14 @@ function personDataParser (_: IData) {
 
   // 按人分组
   const group = groupBy(data, 'userId')
+  
+  
   for(let userId in group) {
     // 补全每个人每天的数据
     group[userId] = replenishOnePersonData02(userId, group[userId]!, filterStartTimeStamp, filterEndTimeStamp)
     
   }
 
-  // console.log("处理后的数据", data, group)
   return group
 }
 
@@ -170,14 +191,23 @@ export function getCalendarList (data: IData) {
   const list: ICalendarItem[] = []
   const userIds = uniq(data.data.map(c=>c.userId))
   const userMap = personDataParser(data)
+
+  const activeTime = dayjs(data.activeTime).format('YYYY-MM-DD')
+  
   for(let index = from.valueOf(); index<=to.valueOf(); index+=oneDay) {
     const t = dayjs(index)
+    const tLabel = t.format('YYYY-MM-DD')
     const week = weekList[t.get('day')]!
     const userList = userIds.map(function (userId) {
-      return userMap[userId]?.find(c=>c.dateTime === t.format('YYYY-MM-DD'))
-    }).filter(c=>!!c)
+      return userMap[userId]?.find(c=>c.dateTime === tLabel)
+    }).filter(c=>!!c).sort(function (a, b) {
+      return _Number(a.userId) - _Number(b.userId)
+    })
     list.push({
-      dateTime: t.format('YYYY-MM-DD'),
+      key: `date_${index}`,
+      isActive: activeTime === tLabel,
+      status: userList[0]?.status ?? '0',
+      dateTime: tLabel,
       label: t.format('MM-DD'),
       week: week.label,
       isHoliday: false,
@@ -185,25 +215,35 @@ export function getCalendarList (data: IData) {
     })
   }
 
-  // 移除节假日的数据
+  // 处理节假日的数据
   list.forEach(function (item) {
     if(data.holidays.includes(item.dateTime)) {
       item.isHoliday = true
-      item.userList.length = 0
+      item.status = '-1'
+      item.userList.forEach(function (item) {
+        item.status = '-1'
+        item.fmtStatus = '节假日'
+        item.city = ''
+      })
     }
   })
+  const activeDateData = list.find(c=>c.dateTime === activeTime)
 
   // 按7列转换数据
   const matrix = arrayGroupColumn(list, 7)
 
-  console.log("用户数据", userMap)
+  console.log("用户数据", userMap)  
+  console.log("矩阵", list, activeDateData)
+  const activeUserList:IPersonDataOutput[] = activeDateData?.userList ?? []
   
-  console.log("矩阵", list)
-  const key = uuid()
-  return matrix.map(function (list, index) {
-    return {
-      id: `${key}-${index}`,
-      data: list
-    }
-  })
+  
+  return {
+    data: matrix.map(function (list, index) {
+      return {
+        key: `group_${index}`,
+        data: list
+      }
+    }),
+    activeUserList
+  }
 }
